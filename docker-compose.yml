@@ -1,0 +1,88 @@
+version: '3.9'
+services:
+
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:latest"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - eauction 
+  
+  kafka:
+    image: "confluentinc/cp-kafka:latest"
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "EMAIL_OTP"
+    networks:
+      - eauction 
+      
+  rabbitmq:
+    image: "rabbitmq:latest"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+    networks:
+      - eauction
+      
+  zipkin-server:
+    image: "openzipkin/zipkin"
+    container_name: zipkin
+    environment:
+      STORAGE_TYPE: mem
+      RABBIT_URI: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "9411:9411"
+    restart: always
+    depends_on:
+      - rabbitmq
+    networks:
+      - eauction
+  
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    environment:
+        - MONGO_INITDB_ROOT_USERNAME=root
+        - MONGO_INITDB_ROOT_PASSWORD=password
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./database/db:/data/db
+    networks:
+      - eauction
+      
+  mongo-express:
+    image: mongo-express:0.54.0
+    container_name: mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=root
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      #- ME_CONFIG_MONGODB_ENABLE_ADMIN=false
+      - ME_CONFIG_MONGODB_URL=mongodb://root:password@mongo:27017/
+      #- ME_CONFIG_MONGODB_SERVER=mongo
+    depends_on:
+      - mongo
+    restart: always
+    ports:
+      - "8081:8081"
+    networks:
+      - eauction
+      
+# Networks to be created to facilitate communication between containers
+networks:
+  eauction:
